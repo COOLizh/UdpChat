@@ -69,6 +69,7 @@ func (c *Client) Input() {
 }
 
 func main() {
+	config := common.GetConfig()
 	var client = Client{
 		dialogues:       make(map[int][]common.Message),
 		groups:          make(map[int][]common.Message),
@@ -83,9 +84,9 @@ func main() {
 	fmt.Scan(&username)
 
 	client.username = username
-	addr, err := net.ResolveUDPAddr("udp4", "127.0.0.1:8000")
+	addr, err := net.ResolveUDPAddr(config.Network, config.BindAddr)
 	common.HandleError(err, common.ErrorFatal)
-	client.conn, err = net.DialUDP("udp4", nil, addr)
+	client.conn, err = net.DialUDP(config.Network, nil, addr)
 	common.HandleError(err, common.ErrorFatal)
 	defer func(c *Client) {
 		fail := recover()
@@ -95,7 +96,6 @@ func main() {
 		c.conn.Close()
 	}(&client)
 	client.addr = client.conn.LocalAddr().String()
-
 	msg := common.Message{
 		MessageHeader: common.MessageHeader{
 			MessageType: common.Instruction,
