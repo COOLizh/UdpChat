@@ -85,6 +85,7 @@ func (s *Server) HandleClientRequest() {
 }
 
 func main() {
+	config := common.GetConfig()
 	var server = Server{
 		listener:        nil,
 		users:           make(map[string]string),
@@ -93,11 +94,9 @@ func main() {
 		handleMessage:   make(chan common.Message),
 	}
 	var err error
-	udpAddr := &net.UDPAddr{
-		Port: 8000,
-		IP:   net.ParseIP("127.0.0.1"),
-	}
-	server.listener, err = net.ListenUDP("udp", udpAddr)
+	addr, err := net.ResolveUDPAddr(config.Network, config.BindAddr)
+	common.HandleError(err, common.ErrorFatal)
+	server.listener, err = net.ListenUDP(config.Network, addr)
 	common.HandleError(err, common.ErrorFatal)
 	defer func(s *Server) {
 		fail := recover()
