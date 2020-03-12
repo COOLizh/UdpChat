@@ -2,14 +2,13 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"net"
 
 	"github.com/COOLizh/itirod/UdpChat/common"
 	"github.com/sirupsen/logrus"
 )
 
-//Server ...
+//Server...
 type Server struct {
 	listener        *net.UDPConn
 	users           map[string]*common.User
@@ -125,12 +124,13 @@ func (s *Server) HandleClientRequest() {
 						Username: msg.Author,
 						Addr:     msg.MessageHeader.RemoteAddr,
 					}
-					fmt.Println(s.users)
+					logrus.Info("a new user has been registered")
 					status = common.Ok
-					content = "You have been succesfully registered"
+					content = "\nYou have been succesfully registered!\n" + common.CommandsInfo + common.InputArrows
 				} else {
 					status = common.Fail
-					content = "Such user exist"
+					content = "\nSuch user exist\n"
+					logrus.Error("can not register new user")
 				}
 				addrs := make([]string, 0)
 				addrs = append(addrs, msg.MessageHeader.RemoteAddr)
@@ -215,9 +215,7 @@ func (s *Server) HandleClientRequest() {
 					Addrs: addrs,
 				}
 				s.sendMessage <- response
-			default:
 			}
-		default:
 		}
 	}
 }

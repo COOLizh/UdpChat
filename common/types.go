@@ -65,6 +65,7 @@ type MessageHeader struct {
 	RemoteAddr         string             `json:"user_addr"`
 	RequestCreateConf  RequestCreateConf  `json:"req_create_conf"`
 	ResponseCreateConf ResponseCreateConf `json:"resp_create_conf"`
+	PrevCommand        string             `json:"prev_command"`
 }
 
 //Message : represents all needful information about message
@@ -78,3 +79,27 @@ type ServerResponse struct {
 	Message Message
 	Addrs   []string
 }
+
+type Command string
+
+// Commands
+const (
+	CommandCreateGroup     Command = "create group"
+	CommandCreateDialogue  Command = "create dialogue"
+	CommandInviteUser      Command = "invite"
+	ComandChatConnect      Command = "connect"
+	CommandChatDisconnect  Command = ":disconnect"
+	CommandDisplayCommands Command = "info"
+)
+
+const (
+	CommandsInfo string = `There are all possible commandsUsage:
+	create group [GroupName] - creates new group of users with unique name
+	create dialogue [DialogueName] - creates new dialogue between 2 users with unique name
+	invite [Username] - invites user in current group or dialogue
+	connect [ChatName] - connects to group or dialogue which you are a member of
+	:disconnect - disconnects from current group or chat
+	info - displays information about possible commands`
+
+	InputArrows string = "\n>> "
+)

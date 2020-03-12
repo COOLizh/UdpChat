@@ -34,6 +34,20 @@ func (c *Client) HandleRecievedMessage() {
 	for {
 		msg := <-c.recievedMessage
 		// do smth
+		switch msg.MessageHeader.MessageType {
+		case common.DialogueRoom:
+		case common.GeneralRoom:
+		case common.GroupRoom:
+		case common.Instruction:
+			switch msg.MessageHeader.Function {
+			case common.CreateDialogue:
+			case common.CreateGroup:
+			case common.LogIn:
+				if msg.MessageHeader.ResponseStatus == common.Ok {
+					c.username = msg.Author
+				}
+			}
+		}
 		c.printMessage <- msg
 	}
 }
@@ -53,7 +67,7 @@ func (c *Client) RecieveMessage() {
 func (c *Client) PrintMessage() {
 	for {
 		msg := <-c.printMessage
-		fmt.Println(msg)
+		fmt.Print(msg.Content)
 	}
 }
 
@@ -61,6 +75,8 @@ func (c *Client) Input() {
 	for {
 		// read input in infinity loop
 		// do smth
+		//var inputStr string
+		//fmt.Scanf()
 		msg := common.Message{
 			// init msg
 		}
@@ -80,7 +96,7 @@ func main() {
 	var err error
 
 	var username string
-	fmt.Println("Enter your username: ")
+	fmt.Print("Enter your username: ")
 	fmt.Scan(&username)
 
 	client.username = username
