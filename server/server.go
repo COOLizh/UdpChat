@@ -124,13 +124,13 @@ func (s *Server) HandleClientRequest() {
 						Username: msg.Author,
 						Addr:     msg.MessageHeader.RemoteAddr,
 					}
-					logrus.Info("a new user has been registered")
+					logrus.Info("a new user was registered")
 					status = common.Ok
 					content = "\nYou have been succesfully registered!\n" + common.CommandsInfo + common.InputArrows
 				} else {
 					status = common.Fail
 					content = "\nSuch user exist\n"
-					logrus.Error("can not register new user")
+					logrus.Error("was not registered new user")
 				}
 				addrs := make([]string, 0)
 				addrs = append(addrs, msg.MessageHeader.RemoteAddr)
@@ -196,7 +196,7 @@ func (s *Server) HandleClientRequest() {
 				for _, v := range users {
 					addrs = append(addrs, v.Addr)
 				}
-				statusStr := "Group created successfully, group name : " + s.groups[newID].Name
+				statusStr := "Group created successfully, group name : " + s.groups[newID].Name + common.InputArrows
 				var response = common.ServerResponse{
 					Message: common.Message{
 						MessageHeader: common.MessageHeader{
@@ -214,6 +214,7 @@ func (s *Server) HandleClientRequest() {
 					},
 					Addrs: addrs,
 				}
+				logrus.Info("a new group was created")
 				s.sendMessage <- response
 			}
 		}

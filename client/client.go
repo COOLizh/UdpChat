@@ -73,12 +73,21 @@ func (c *Client) PrintMessage() {
 
 func (c *Client) Input() {
 	for {
-		// read input in infinity loop
-		// do smth
-		//var inputStr string
-		//fmt.Scanf()
+		var command, attribute string
+		fmt.Scanf("%s %s", &command, &attribute)
 		msg := common.Message{
-			// init msg
+			Author: c.addr,
+		}
+		switch command {
+		case string(common.CommandCreateGroup):
+			msg.MessageHeader = common.MessageHeader{
+				MessageType: common.Instruction,
+				Function:    common.CreateGroup,
+				RequestCreateConf: common.RequestCreateConf{
+					Name:      attribute,
+					UserNames: []string{c.username},
+				},
+			}
 		}
 		c.sendMessage <- msg
 	}

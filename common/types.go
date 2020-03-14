@@ -84,22 +84,22 @@ type Command string
 
 // Commands
 const (
-	CommandCreateGroup     Command = "create group"
-	CommandCreateDialogue  Command = "create dialogue"
-	CommandInviteUser      Command = "invite"
-	ComandChatConnect      Command = "connect"
-	CommandChatDisconnect  Command = ":disconnect"
-	CommandDisplayCommands Command = "info"
+	CommandCreateGroup     Command = "/create-group"
+	CommandCreateDialogue  Command = "/create-dialogue"
+	CommandInviteUser      Command = "/invite"
+	ComandChatConnect      Command = "/connect"
+	CommandChatDisconnect  Command = "/disconnect"
+	CommandDisplayCommands Command = "/info"
 )
 
 const (
-	CommandsInfo string = `There are all possible commandsUsage:
-	create group [GroupName] - creates new group of users with unique name
-	create dialogue [DialogueName] - creates new dialogue between 2 users with unique name
-	invite [Username] - invites user in current group or dialogue
-	connect [ChatName] - connects to group or dialogue which you are a member of
-	:disconnect - disconnects from current group or chat
-	info - displays information about possible commands`
+	CommandsInfo string = `There are all possible commands. Usage:
+	/create-group [GroupName] - creates new group of users with unique name
+	/create-dialogue [Username] - creates new dialogue between you and other user with his own username
+	/invite [Username] - invites user in current group or dialogue
+	/connect [ChatName or UserName] - connects to group or dialogue which you are a member of
+	/disconnect - disconnects from current group or chat
+	/info - displays information about possible commands`
 
 	InputArrows string = "\n>> "
 )
