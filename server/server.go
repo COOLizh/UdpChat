@@ -51,6 +51,7 @@ func (s *Server) SendClientMessage() {
 func (s *Server) HandleClientRequest() {
 	for {
 		msg := <-s.handleMessage
+		var response common.ServerResponse
 		switch msg.MessageHeader.MessageType {
 		case common.GeneralRoom:
 			s.general = append(s.general, msg)
@@ -58,7 +59,7 @@ func (s *Server) HandleClientRequest() {
 			for _, v := range s.users {
 				addrs = append(addrs, v.Addr)
 			}
-			var response = common.ServerResponse{
+			response = common.ServerResponse{
 				Message: common.Message{
 					MessageHeader: common.MessageHeader{
 						MessageType:    common.GeneralRoom,
@@ -70,7 +71,6 @@ func (s *Server) HandleClientRequest() {
 				},
 				Addrs: addrs,
 			}
-			s.sendMessage <- response
 		case common.DialogueRoom:
 			id := msg.MessageHeader.DestinationID
 			s.dialogues[id].Messages = append(s.dialogues[id].Messages, msg)
@@ -78,7 +78,7 @@ func (s *Server) HandleClientRequest() {
 			for _, v := range s.dialogues[id].Users {
 				addrs = append(addrs, v.Addr)
 			}
-			var response = common.ServerResponse{
+			response = common.ServerResponse{
 				Message: common.Message{
 					MessageHeader: common.MessageHeader{
 						MessageType:    common.DialogueRoom,
@@ -91,7 +91,6 @@ func (s *Server) HandleClientRequest() {
 				},
 				Addrs: addrs,
 			}
-			s.sendMessage <- response
 		case common.GroupRoom:
 			id := msg.MessageHeader.DestinationID
 			s.groups[id].Messages = append(s.groups[id].Messages, msg)
@@ -99,7 +98,7 @@ func (s *Server) HandleClientRequest() {
 			for _, v := range s.groups[id].Users {
 				addrs = append(addrs, v.Addr)
 			}
-			var response = common.ServerResponse{
+			response = common.ServerResponse{
 				Message: common.Message{
 					MessageHeader: common.MessageHeader{
 						MessageType:    common.GroupRoom,
@@ -112,7 +111,6 @@ func (s *Server) HandleClientRequest() {
 				},
 				Addrs: addrs,
 			}
-			s.sendMessage <- response
 		case common.Instruction:
 			switch msg.MessageHeader.Function {
 			case common.LogIn:
@@ -134,7 +132,7 @@ func (s *Server) HandleClientRequest() {
 				}
 				addrs := make([]string, 0)
 				addrs = append(addrs, msg.MessageHeader.RemoteAddr)
-				var responce = common.ServerResponse{
+				response = common.ServerResponse{
 					Message: common.Message{
 						MessageHeader: common.MessageHeader{
 							MessageType:    msg.MessageHeader.MessageType,
@@ -146,7 +144,6 @@ func (s *Server) HandleClientRequest() {
 					},
 					Addrs: addrs,
 				}
-				s.sendMessage <- responce
 			case common.CreateDialogue:
 				users := make(map[string]*common.User)
 				for _, v := range msg.MessageHeader.RequestCreateConf.UserNames {
@@ -163,7 +160,7 @@ func (s *Server) HandleClientRequest() {
 					addrs = append(addrs, v.Addr)
 				}
 				statusStr := "Dialogue created successfully, dialogue name : " + s.dialogues[newID].Name
-				var response = common.ServerResponse{
+				response = common.ServerResponse{
 					Message: common.Message{
 						MessageHeader: common.MessageHeader{
 							MessageType:    msg.MessageHeader.MessageType,
@@ -180,7 +177,6 @@ func (s *Server) HandleClientRequest() {
 					},
 					Addrs: addrs,
 				}
-				s.sendMessage <- response
 			case common.CreateGroup:
 				users := make(map[string]*common.User)
 				for _, v := range msg.MessageHeader.RequestCreateConf.UserNames {
@@ -197,7 +193,7 @@ func (s *Server) HandleClientRequest() {
 					addrs = append(addrs, v.Addr)
 				}
 				statusStr := "Group created successfully, group name : " + s.groups[newID].Name + common.InputArrows
-				var response = common.ServerResponse{
+				response = common.ServerResponse{
 					Message: common.Message{
 						MessageHeader: common.MessageHeader{
 							MessageType:    msg.MessageHeader.MessageType,
@@ -215,9 +211,55 @@ func (s *Server) HandleClientRequest() {
 					Addrs: addrs,
 				}
 				logrus.Info("a new group was created")
-				s.sendMessage <- response
+
+			case common.ConnectGroup:
+
+				//template of response
+				response = common.ServerResponse{
+					Message: common.Message{
+						MessageHeader: common.MessageHeader{
+							MessageType: msg.MessageHeader.MessageType,
+							Function:    msg.MessageHeader.Function,
+						},
+						Author: msg.Author,
+					},
+					Addrs: []string{msg.MessageHeader.RemoteAddr},
+				}
+
+				//check if such group exists
+				var isExist bool
+				var confKey int
+				for key := range s.groups {
+					if s.groups[key].Name == msg.MessageHeader.RequestConnectConf.ConfName {
+						isExist = true
+						confKey = key
+						break
+					}
+				}
+				if !isExist {
+					response.Message.Content = "No group with such name" + common.InputArrows
+					response.Message.MessageHeader.ResponseStatus = common.Fail
+					break
+				}
+
+				//check user member of conf
+				_, ok := s.groups[confKey].Users[msg.Author]
+				if !ok {
+					response.Message.Content = "You're not member of this group" + common.InputArrows
+					response.Message.MessageHeader.ResponseStatus = common.Fail
+					break
+				}
+
+				//collect all messages from group
+				var content string = "*You are in " + s.groups[confKey].Name + "group*\n"
+				for _, message := range s.groups[confKey].Messages {
+					content += message.Author + ": " + message.Content + "\n"
+				}
+				response.Message.Content = content
+				response.Message.MessageHeader.ResponseStatus = common.Ok
 			}
 		}
+		s.sendMessage <- response
 	}
 }
 

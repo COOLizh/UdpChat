@@ -14,9 +14,11 @@ const (
 type InstructionString string
 
 const (
-	CreateDialogue InstructionString = "$create_dialogue"
-	CreateGroup    InstructionString = "$create_group"
-	LogIn          InstructionString = "$login"
+	CreateDialogue  InstructionString = "$create_dialogue"
+	CreateGroup     InstructionString = "$create_group"
+	LogIn           InstructionString = "$login"
+	ConnectGroup    InstructionString = "$connect_group"
+	ConnectDialogue InstructionString = "$connect_dialogue"
 )
 
 type ErrorType uint
@@ -56,6 +58,11 @@ type ResponseCreateConf struct {
 	ID   int    `json:"id"`
 }
 
+type RequestConnectConf struct {
+	Username string `json:"username"`
+	ConfName string `json:"conf_name"`
+}
+
 //MessageHeader : represents message metadata
 type MessageHeader struct {
 	MessageType        MessageType        `json:"type"`
@@ -65,7 +72,7 @@ type MessageHeader struct {
 	RemoteAddr         string             `json:"user_addr"`
 	RequestCreateConf  RequestCreateConf  `json:"req_create_conf"`
 	ResponseCreateConf ResponseCreateConf `json:"resp_create_conf"`
-	PrevCommand        string             `json:"prev_command"`
+	RequestConnectConf RequestConnectConf `json:"req_connect_conf"`
 }
 
 //Message : represents all needful information about message
@@ -87,7 +94,8 @@ const (
 	CommandCreateGroup     Command = "/create-group"
 	CommandCreateDialogue  Command = "/create-dialogue"
 	CommandInviteUser      Command = "/invite"
-	ComandChatConnect      Command = "/connect"
+	CommandGroupConnect    Command = "/connect-group"
+	CommandDialogueConnect Command = "/connect-dialogue"
 	CommandChatDisconnect  Command = "/disconnect"
 	CommandDisplayCommands Command = "/info"
 )
@@ -97,7 +105,8 @@ const (
 	/create-group [GroupName] - creates new group of users with unique name
 	/create-dialogue [Username] - creates new dialogue between you and other user with his own username
 	/invite [Username] - invites user in current group or dialogue
-	/connect [ChatName or UserName] - connects to group or dialogue which you are a member of
+	/connect-group [GroupName] - connects to group which you are a member of
+	/connect-dialogue [Username] - connects to dialogue
 	/disconnect - disconnects from current group or chat
 	/info - displays information about possible commands`
 

@@ -13,6 +13,7 @@ type Client struct {
 	conn            *net.UDPConn
 	addr            string
 	username        string
+	prevCommand     common.Command
 	printMessage    chan common.Message
 	sendMessage     chan common.Message
 	recievedMessage chan common.Message
@@ -76,7 +77,7 @@ func (c *Client) Input() {
 		var command, attribute string
 		fmt.Scanf("%s %s", &command, &attribute)
 		msg := common.Message{
-			Author: c.addr,
+			Author: c.username,
 		}
 		switch command {
 		case string(common.CommandCreateGroup):
@@ -87,8 +88,20 @@ func (c *Client) Input() {
 					Name:      attribute,
 					UserNames: []string{c.username},
 				},
+				RemoteAddr: c.addr,
+			}
+			c.prevCommand = common.CommandCreateGroup
+		case string(common.CommandGroupConnect):
+			msg.MessageHeader = common.MessageHeader{
+				MessageType: common.Instruction,
+				Function:    common.ConnectGroup,
+				RequestConnectConf: common.RequestConnectConf{
+					ConfName: attribute,
+				},
+				RemoteAddr: c.addr,
 			}
 		}
+
 		c.sendMessage <- msg
 	}
 }
