@@ -9,10 +9,12 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+// Client : contains all needful information about client
 type Client struct {
 	conn            *net.UDPConn
 	addr            string
 	username        string
+	currChat        string
 	prevCommand     common.Command
 	printMessage    chan common.Message
 	sendMessage     chan common.Message
@@ -21,6 +23,7 @@ type Client struct {
 	groups          map[int][]common.Message
 }
 
+// SendMessage : recieves message to server
 func (c *Client) SendMessage() {
 	for {
 		msg := <-c.sendMessage
@@ -31,10 +34,10 @@ func (c *Client) SendMessage() {
 	}
 }
 
+// HandleRecievedMessage : processing server response
 func (c *Client) HandleRecievedMessage() {
 	for {
 		msg := <-c.recievedMessage
-		// do smth
 		switch msg.MessageHeader.MessageType {
 		case common.DialogueRoom:
 		case common.GeneralRoom:
@@ -43,9 +46,19 @@ func (c *Client) HandleRecievedMessage() {
 			switch msg.MessageHeader.Function {
 			case common.CreateDialogue:
 			case common.CreateGroup:
+				if msg.MessageHeader.ResponseStatus == common.Ok {
+					c.prevCommand = common.CommandCreateGroup
+					c.currChat = ""
+				}
 			case common.LogIn:
 				if msg.MessageHeader.ResponseStatus == common.Ok {
 					c.username = msg.Author
+					c.currChat = ""
+				}
+			case common.ConnectGroup:
+				if msg.MessageHeader.ResponseStatus == common.Ok {
+					c.prevCommand = common.CommandGroupConnect
+					c.currChat = msg.MessageHeader.ResponseCreateConf.Name
 				}
 			}
 		}
@@ -53,6 +66,7 @@ func (c *Client) HandleRecievedMessage() {
 	}
 }
 
+// RecieveMessage : receives a message fo further processing
 func (c *Client) RecieveMessage() {
 	for {
 		buff := make([]byte, 1024)
@@ -65,6 +79,7 @@ func (c *Client) RecieveMessage() {
 	}
 }
 
+// PrintMessage : prints processed message
 func (c *Client) PrintMessage() {
 	for {
 		msg := <-c.printMessage
@@ -72,8 +87,10 @@ func (c *Client) PrintMessage() {
 	}
 }
 
+// Input : provides user input
 func (c *Client) Input() {
 	for {
+		isOkInput := true
 		var command, attribute string
 		fmt.Scanf("%s %s", &command, &attribute)
 		msg := common.Message{
@@ -90,7 +107,7 @@ func (c *Client) Input() {
 				},
 				RemoteAddr: c.addr,
 			}
-			c.prevCommand = common.CommandCreateGroup
+
 		case string(common.CommandGroupConnect):
 			msg.MessageHeader = common.MessageHeader{
 				MessageType: common.Instruction,
@@ -100,9 +117,32 @@ func (c *Client) Input() {
 				},
 				RemoteAddr: c.addr,
 			}
+		case string(common.CommandInviteUser):
+			isOkInput = false
+			if c.prevCommand == common.CommandDialogueConnect {
+				isOkInput = true
+				// TODO
+			} else if c.prevCommand == common.CommandGroupConnect {
+				isOkInput = true
+				msg.MessageHeader = common.MessageHeader{
+					MessageType: common.Instruction,
+					Function:    common.InviteToGroup,
+					RequestConnectConf: common.RequestConnectConf{
+						Username: attribute,
+						ConfName: c.currChat,
+					},
+					RemoteAddr: c.addr,
+				}
+			}
+		default:
+			isOkInput = false
 		}
-
-		c.sendMessage <- msg
+		if isOkInput {
+			c.sendMessage <- msg
+		} else {
+			msg.Content = common.CommandsInfo + common.InputArrows
+			c.printMessage <- msg
+		}
 	}
 }
 

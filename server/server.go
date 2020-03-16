@@ -8,7 +8,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-//Server...
+// Server : contains all needful information about server
 type Server struct {
 	listener        *net.UDPConn
 	users           map[string]*common.User
@@ -20,6 +20,7 @@ type Server struct {
 	handleMessage   chan common.Message
 }
 
+//RecieveClientMessage : receives a message for further processing
 func (s *Server) RecieveClientMessage() {
 	for {
 		buff := make([]byte, 1024)
@@ -32,6 +33,7 @@ func (s *Server) RecieveClientMessage() {
 	}
 }
 
+// SendClientMessage : send message to client after processing
 func (s *Server) SendClientMessage() {
 	for {
 		msgGen := <-s.sendMessage
@@ -47,7 +49,7 @@ func (s *Server) SendClientMessage() {
 	}
 }
 
-//HandleClientRequest ...
+//HandleClientRequest : processing message
 func (s *Server) HandleClientRequest() {
 	for {
 		msg := <-s.handleMessage
@@ -213,7 +215,6 @@ func (s *Server) HandleClientRequest() {
 				logrus.Info("a new group was created")
 
 			case common.ConnectGroup:
-
 				//template of response
 				response = common.ServerResponse{
 					Message: common.Message{
@@ -227,16 +228,16 @@ func (s *Server) HandleClientRequest() {
 				}
 
 				//check if such group exists
-				var isExist bool
+				var isNotExist bool
 				var confKey int
 				for key := range s.groups {
 					if s.groups[key].Name == msg.MessageHeader.RequestConnectConf.ConfName {
-						isExist = true
+						isNotExist = true
 						confKey = key
 						break
 					}
 				}
-				if !isExist {
+				if !isNotExist {
 					response.Message.Content = "No group with such name" + common.InputArrows
 					response.Message.MessageHeader.ResponseStatus = common.Fail
 					break
@@ -251,12 +252,47 @@ func (s *Server) HandleClientRequest() {
 				}
 
 				//collect all messages from group
-				var content string = "*You are in " + s.groups[confKey].Name + "group*\n"
+				var content string = "*You are in " + s.groups[confKey].Name + " group*\n"
 				for _, message := range s.groups[confKey].Messages {
 					content += message.Author + ": " + message.Content + "\n"
 				}
 				response.Message.Content = content
 				response.Message.MessageHeader.ResponseStatus = common.Ok
+				response.Message.MessageHeader.ResponseCreateConf.Name = s.groups[confKey].Name
+
+			case common.InviteToGroup:
+				//template of response
+				response = common.ServerResponse{
+					Message: common.Message{
+						MessageHeader: common.MessageHeader{
+							MessageType: msg.MessageHeader.MessageType,
+							Function:    msg.MessageHeader.Function,
+						},
+						Author: msg.Author,
+					},
+					Addrs: []string{msg.MessageHeader.RemoteAddr},
+				}
+
+				//check if such user exists
+				usr, ok := s.users[msg.MessageHeader.RequestConnectConf.Username]
+				if !ok {
+					response.Message.Content = "*There is no such user registered*\n"
+					response.Message.MessageHeader.ResponseStatus = common.Fail
+					break
+				}
+
+				// find group
+				var confKey int
+				for key := range s.groups {
+					if s.groups[key].Name == msg.MessageHeader.RequestConnectConf.ConfName {
+						confKey = key
+						break
+					}
+				}
+
+				//adding new user to conf
+				s.groups[confKey].Users[usr.Username] = usr
+				response.Message.Content = "*User " + usr.Username + " sucesfully added!*\n"
 			}
 		}
 		s.sendMessage <- response
