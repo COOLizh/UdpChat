@@ -292,6 +292,21 @@ func (s *Server) HandleClientRequest() {
 				//adding new user to conf
 				s.groups[msg.MessageHeader.DestinationID].Users[usr.Username] = usr
 				response.Message.Content = "*User " + usr.Username + " sucesfully added!*\n"
+
+			case common.Disconnect:
+				response = common.ServerResponse{
+					Message: common.Message{
+						MessageHeader: common.MessageHeader{
+							MessageType: msg.MessageHeader.MessageType,
+							Function:    msg.MessageHeader.Function,
+						},
+						Author: msg.Author,
+					},
+					Addrs: []string{msg.MessageHeader.RemoteAddr},
+				}
+
+				s.groups[msg.MessageHeader.DestinationID].Users[msg.Content].IsOnline = false
+				response.Message.Content = common.InputArrows
 			}
 		}
 		s.sendMessage <- response

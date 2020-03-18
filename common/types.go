@@ -25,6 +25,7 @@ const (
 	ConnectDialogue  InstructionString = "$connect_dialogue"
 	InviteToDialogue InstructionString = "$invite_to_dialogue"
 	InviteToGroup    InstructionString = "$invite_to_group"
+	Disconnect       InstructionString = "$disconnect"
 )
 
 // ErrorType : needed to know what kind of error happend

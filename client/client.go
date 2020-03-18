@@ -62,6 +62,9 @@ func (c *Client) HandleRecievedMessage() {
 					c.prevCommand = common.CommandGroupConnect
 					c.currChatID = msg.MessageHeader.DestinationID
 				}
+			case common.Disconnect:
+				c.prevCommand = common.CommandChatDisconnect
+				c.currChatID = -1
 			}
 		}
 		c.printMessage <- msg
@@ -109,7 +112,6 @@ func (c *Client) Input() {
 				},
 				RemoteAddr: c.addr,
 			}
-
 		case string(common.CommandGroupConnect):
 			msg.MessageHeader = common.MessageHeader{
 				MessageType: common.Instruction,
@@ -132,6 +134,14 @@ func (c *Client) Input() {
 				}
 				msg.Content = attribute
 			}
+		case string(common.CommandChatDisconnect):
+			msg.MessageHeader = common.MessageHeader{
+				MessageType:   common.Instruction,
+				Function:      common.Disconnect,
+				DestinationID: c.currChatID,
+				RemoteAddr:    c.addr,
+			}
+			msg.Content = c.username
 		default:
 			isOkInput = false
 			if c.currChatID != -1 {
