@@ -14,7 +14,7 @@ type Client struct {
 	conn            *net.UDPConn
 	addr            string
 	username        string
-	currChat        string
+	currChatID      int
 	prevCommand     common.Command
 	printMessage    chan common.Message
 	sendMessage     chan common.Message
@@ -48,17 +48,17 @@ func (c *Client) HandleRecievedMessage() {
 			case common.CreateGroup:
 				if msg.MessageHeader.ResponseStatus == common.Ok {
 					c.prevCommand = common.CommandCreateGroup
-					c.currChat = ""
+					c.currChatID = -1
 				}
 			case common.LogIn:
 				if msg.MessageHeader.ResponseStatus == common.Ok {
 					c.username = msg.Author
-					c.currChat = ""
+					c.currChatID = -1
 				}
 			case common.ConnectGroup:
 				if msg.MessageHeader.ResponseStatus == common.Ok {
 					c.prevCommand = common.CommandGroupConnect
-					c.currChat = msg.MessageHeader.ResponseCreateConf.Name
+					c.currChatID = msg.MessageHeader.DestinationID
 				}
 			}
 		}
@@ -112,11 +112,9 @@ func (c *Client) Input() {
 			msg.MessageHeader = common.MessageHeader{
 				MessageType: common.Instruction,
 				Function:    common.ConnectGroup,
-				RequestConnectConf: common.RequestConnectConf{
-					ConfName: attribute,
-				},
-				RemoteAddr: c.addr,
+				RemoteAddr:  c.addr,
 			}
+			msg.Content = attribute
 		case string(common.CommandInviteUser):
 			isOkInput = false
 			if c.prevCommand == common.CommandDialogueConnect {
@@ -125,17 +123,21 @@ func (c *Client) Input() {
 			} else if c.prevCommand == common.CommandGroupConnect {
 				isOkInput = true
 				msg.MessageHeader = common.MessageHeader{
-					MessageType: common.Instruction,
-					Function:    common.InviteToGroup,
-					RequestConnectConf: common.RequestConnectConf{
-						Username: attribute,
-						ConfName: c.currChat,
-					},
-					RemoteAddr: c.addr,
+					MessageType:   common.Instruction,
+					Function:      common.InviteToGroup,
+					DestinationID: c.currChatID,
+					RemoteAddr:    c.addr,
 				}
+				msg.Content = attribute
 			}
 		default:
 			isOkInput = false
+			if c.currChatID != -1 {
+				isOkInput = true
+				msg.MessageHeader = common.MessageHeader{
+					MessageType: common.GroupRoom,
+				}
+			}
 		}
 		if isOkInput {
 			c.sendMessage <- msg

@@ -231,7 +231,7 @@ func (s *Server) HandleClientRequest() {
 				var isNotExist bool
 				var confKey int
 				for key := range s.groups {
-					if s.groups[key].Name == msg.MessageHeader.RequestConnectConf.ConfName {
+					if s.groups[key].Name == msg.Content {
 						isNotExist = true
 						confKey = key
 						break
@@ -251,12 +251,16 @@ func (s *Server) HandleClientRequest() {
 					break
 				}
 
+				//make this user online in chat
+				s.groups[confKey].Users[msg.Author].IsOnline = true
+
 				//collect all messages from group
 				var content string = "*You are in " + s.groups[confKey].Name + " group*\n"
 				for _, message := range s.groups[confKey].Messages {
 					content += message.Author + ": " + message.Content + "\n"
 				}
 				response.Message.Content = content
+				response.Message.MessageHeader.DestinationID = confKey
 				response.Message.MessageHeader.ResponseStatus = common.Ok
 				response.Message.MessageHeader.ResponseCreateConf.Name = s.groups[confKey].Name
 
@@ -274,24 +278,15 @@ func (s *Server) HandleClientRequest() {
 				}
 
 				//check if such user exists
-				usr, ok := s.users[msg.MessageHeader.RequestConnectConf.Username]
+				usr, ok := s.users[msg.Content]
 				if !ok {
 					response.Message.Content = "*There is no such user registered*\n"
 					response.Message.MessageHeader.ResponseStatus = common.Fail
 					break
 				}
 
-				// find group
-				var confKey int
-				for key := range s.groups {
-					if s.groups[key].Name == msg.MessageHeader.RequestConnectConf.ConfName {
-						confKey = key
-						break
-					}
-				}
-
 				//adding new user to conf
-				s.groups[confKey].Users[usr.Username] = usr
+				s.groups[msg.MessageHeader.DestinationID].Users[usr.Username] = usr
 				response.Message.Content = "*User " + usr.Username + " sucesfully added!*\n"
 			}
 		}

@@ -51,6 +51,7 @@ const (
 type User struct {
 	Username string
 	Addr     string
+	IsOnline bool
 }
 
 // Conf : contains all needful information about group
@@ -72,12 +73,6 @@ type ResponseCreateConf struct {
 	ID   int    `json:"id"`
 }
 
-// RequestConnectConf : needed to connect user to chat or invite some user to chat
-type RequestConnectConf struct {
-	Username string `json:"username"`
-	ConfName string `json:"conf_name"`
-}
-
 // MessageHeader : represents message metadata
 type MessageHeader struct {
 	MessageType        MessageType        `json:"type"`
@@ -87,7 +82,6 @@ type MessageHeader struct {
 	RemoteAddr         string             `json:"user_addr"`
 	RequestCreateConf  RequestCreateConf  `json:"req_create_conf"`
 	ResponseCreateConf ResponseCreateConf `json:"resp_create_conf"`
-	RequestConnectConf RequestConnectConf `json:"req_connect_conf"`
 }
 
 // Message : represents all needful information about message
