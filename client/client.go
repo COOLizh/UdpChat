@@ -42,6 +42,8 @@ func (c *Client) HandleRecievedMessage() {
 		case common.DialogueRoom:
 		case common.GeneralRoom:
 		case common.GroupRoom:
+			c.currChatID = msg.MessageHeader.DestinationID
+			msg.Content = msg.Author + " : " + msg.Content + "\n"
 		case common.Instruction:
 			switch msg.MessageHeader.Function {
 			case common.CreateDialogue:
@@ -135,8 +137,10 @@ func (c *Client) Input() {
 			if c.currChatID != -1 {
 				isOkInput = true
 				msg.MessageHeader = common.MessageHeader{
-					MessageType: common.GroupRoom,
+					MessageType:   common.GroupRoom,
+					DestinationID: c.currChatID,
 				}
+				msg.Content = command + " " + attribute
 			}
 		}
 		if isOkInput {

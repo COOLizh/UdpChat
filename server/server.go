@@ -96,9 +96,11 @@ func (s *Server) HandleClientRequest() {
 		case common.GroupRoom:
 			id := msg.MessageHeader.DestinationID
 			s.groups[id].Messages = append(s.groups[id].Messages, msg)
-			addrs := make([]string, 0, len(s.users))
+			addrs := make([]string, 0)
 			for _, v := range s.groups[id].Users {
-				addrs = append(addrs, v.Addr)
+				if v.IsOnline {
+					addrs = append(addrs, v.Addr)
+				}
 			}
 			response = common.ServerResponse{
 				Message: common.Message{
@@ -284,6 +286,8 @@ func (s *Server) HandleClientRequest() {
 					response.Message.MessageHeader.ResponseStatus = common.Fail
 					break
 				}
+
+				//TODO : check if user already invited
 
 				//adding new user to conf
 				s.groups[msg.MessageHeader.DestinationID].Users[usr.Username] = usr
