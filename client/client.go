@@ -43,7 +43,6 @@ func (c *Client) HandleRecievedMessage() {
 		case common.GeneralRoom:
 		case common.GroupRoom:
 			c.currChatID = msg.MessageHeader.DestinationID
-			msg.Content = msg.Author + " : " + msg.Content + "\n"
 		case common.Instruction:
 			switch msg.MessageHeader.Function {
 			case common.CreateDialogue:
@@ -151,6 +150,8 @@ func (c *Client) Input() {
 					DestinationID: c.currChatID,
 				}
 				msg.Content = command + " " + attribute
+				msg.MessageHeader.RemoteAddr = c.addr
+				fmt.Print(c.username + " : " + command + " " + attribute)
 			}
 		}
 		if isOkInput {

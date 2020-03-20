@@ -57,9 +57,10 @@ type User struct {
 
 // Conf : contains all needful information about group
 type Conf struct {
-	Name     string
-	Messages []Message
-	Users    map[string]*User
+	Name            string
+	Messages        []Message
+	Users           map[string]*User
+	LastMessageAddr string
 }
 
 // RequestCreateConf : needed for MesageHeader

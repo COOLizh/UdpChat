@@ -98,22 +98,46 @@ func (s *Server) HandleClientRequest() {
 			s.groups[id].Messages = append(s.groups[id].Messages, msg)
 			addrs := make([]string, 0)
 			for _, v := range s.groups[id].Users {
+				if v.Addr == msg.MessageHeader.RemoteAddr {
+					continue
+				}
 				if v.IsOnline {
 					addrs = append(addrs, v.Addr)
 				}
 			}
-			response = common.ServerResponse{
-				Message: common.Message{
-					MessageHeader: common.MessageHeader{
-						MessageType:    common.GroupRoom,
-						DestinationID:  id,
-						ResponseStatus: common.Ok,
-						RemoteAddr:     msg.MessageHeader.RemoteAddr,
+
+			// if nobody read message
+			if len(addrs) == 0 {
+				s.groups[id].LastMessageAddr = msg.MessageHeader.RemoteAddr
+			} else {
+				response = common.ServerResponse{
+					Message: common.Message{
+						MessageHeader: common.MessageHeader{
+							MessageType:    common.GroupRoom,
+							DestinationID:  id,
+							ResponseStatus: common.Ok,
+							RemoteAddr:     msg.MessageHeader.RemoteAddr,
+						},
+						Author:  msg.Author,
+						Content: "*Message recieved*\n",
 					},
-					Author:  msg.Author,
-					Content: msg.Content,
-				},
-				Addrs: addrs,
+					Addrs: []string{msg.MessageHeader.RemoteAddr},
+				}
+				s.sendMessage <- response
+
+				response = common.ServerResponse{
+					Message: common.Message{
+						MessageHeader: common.MessageHeader{
+							MessageType:    common.GroupRoom,
+							DestinationID:  id,
+							ResponseStatus: common.Ok,
+							RemoteAddr:     msg.MessageHeader.RemoteAddr,
+						},
+						Author:  msg.Author,
+						Content: msg.Author + " : " + msg.Content + "\n",
+					},
+					Addrs: addrs,
+				}
 			}
 		case common.Instruction:
 			switch msg.MessageHeader.Function {
@@ -188,9 +212,10 @@ func (s *Server) HandleClientRequest() {
 				}
 				newID := len(s.groups) + 1
 				s.groups[newID] = &common.Conf{
-					Name:     msg.MessageHeader.RequestCreateConf.Name,
-					Messages: make([]common.Message, 0),
-					Users:    users,
+					Name:            msg.MessageHeader.RequestCreateConf.Name,
+					Messages:        make([]common.Message, 0),
+					Users:           users,
+					LastMessageAddr: "",
 				}
 				addrs := make([]string, 0)
 				for _, v := range users {
@@ -261,6 +286,26 @@ func (s *Server) HandleClientRequest() {
 				for _, message := range s.groups[confKey].Messages {
 					content += message.Author + ": " + message.Content + "\n"
 				}
+
+				//if there unread messages
+				if s.groups[confKey].LastMessageAddr != "" {
+					var res = common.ServerResponse{
+						Message: common.Message{
+							MessageHeader: common.MessageHeader{
+								MessageType:    common.GroupRoom,
+								DestinationID:  confKey,
+								ResponseStatus: common.Ok,
+								RemoteAddr:     msg.MessageHeader.RemoteAddr,
+							},
+							Author:  msg.Author,
+							Content: "*Message recieved*\n",
+						},
+						Addrs: []string{s.groups[confKey].LastMessageAddr},
+					}
+					s.sendMessage <- res
+					s.groups[confKey].LastMessageAddr = ""
+				}
+
 				response.Message.Content = content
 				response.Message.MessageHeader.DestinationID = confKey
 				response.Message.MessageHeader.ResponseStatus = common.Ok
