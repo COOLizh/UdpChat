@@ -40,12 +40,17 @@ func (c *Client) HandleRecievedMessage() {
 		msg := <-c.recievedMessage
 		switch msg.MessageHeader.MessageType {
 		case common.DialogueRoom:
+			c.currChatID = msg.MessageHeader.DestinationID
 		case common.GeneralRoom:
 		case common.GroupRoom:
 			c.currChatID = msg.MessageHeader.DestinationID
 		case common.Instruction:
 			switch msg.MessageHeader.Function {
 			case common.CreateDialogue:
+				if msg.MessageHeader.ResponseStatus == common.Ok {
+					c.prevCommand = common.CommandCreateDialogue
+					c.currChatID = -1
+				}
 			case common.CreateGroup:
 				if msg.MessageHeader.ResponseStatus == common.Ok {
 					c.prevCommand = common.CommandCreateGroup
@@ -59,6 +64,11 @@ func (c *Client) HandleRecievedMessage() {
 			case common.ConnectGroup:
 				if msg.MessageHeader.ResponseStatus == common.Ok {
 					c.prevCommand = common.CommandGroupConnect
+					c.currChatID = msg.MessageHeader.DestinationID
+				}
+			case common.ConnectDialogue:
+				if msg.MessageHeader.ResponseStatus == common.Ok {
+					c.prevCommand = common.CommandDialogueConnect
 					c.currChatID = msg.MessageHeader.DestinationID
 				}
 			case common.Disconnect:
@@ -111,6 +121,16 @@ func (c *Client) Input() {
 				},
 				RemoteAddr: c.addr,
 			}
+		case string(common.CommandCreateDialogue):
+			msg.MessageHeader = common.MessageHeader{
+				MessageType: common.Instruction,
+				Function:    common.CreateDialogue,
+				RequestCreateConf: common.RequestCreateConf{
+					Name:      attribute,
+					UserNames: []string{c.username},
+				},
+				RemoteAddr: c.addr,
+			}
 		case string(common.CommandGroupConnect):
 			msg.MessageHeader = common.MessageHeader{
 				MessageType: common.Instruction,
@@ -118,11 +138,24 @@ func (c *Client) Input() {
 				RemoteAddr:  c.addr,
 			}
 			msg.Content = attribute
+		case string(common.CommandDialogueConnect):
+			msg.MessageHeader = common.MessageHeader{
+				MessageType: common.Instruction,
+				Function:    common.ConnectDialogue,
+				RemoteAddr:  c.addr,
+			}
+			msg.Content = attribute
 		case string(common.CommandInviteUser):
 			isOkInput = false
 			if c.prevCommand == common.CommandDialogueConnect {
 				isOkInput = true
-				// TODO
+				msg.MessageHeader = common.MessageHeader{
+					MessageType:   common.Instruction,
+					Function:      common.InviteToDialogue,
+					DestinationID: c.currChatID,
+					RemoteAddr:    c.addr,
+				}
+				msg.Content = attribute
 			} else if c.prevCommand == common.CommandGroupConnect {
 				isOkInput = true
 				msg.MessageHeader = common.MessageHeader{
@@ -140,14 +173,21 @@ func (c *Client) Input() {
 				DestinationID: c.currChatID,
 				RemoteAddr:    c.addr,
 			}
-			msg.Content = c.username
+			msg.Content = string(c.prevCommand)
 		default:
 			isOkInput = false
 			if c.currChatID != -1 {
 				isOkInput = true
-				msg.MessageHeader = common.MessageHeader{
-					MessageType:   common.GroupRoom,
-					DestinationID: c.currChatID,
+				if c.prevCommand == common.CommandGroupConnect {
+					msg.MessageHeader = common.MessageHeader{
+						MessageType:   common.GroupRoom,
+						DestinationID: c.currChatID,
+					}
+				} else if c.prevCommand == common.CommandDialogueConnect {
+					msg.MessageHeader = common.MessageHeader{
+						MessageType:   common.DialogueRoom,
+						DestinationID: c.currChatID,
+					}
 				}
 				msg.Content = command + " " + attribute
 				msg.MessageHeader.RemoteAddr = c.addr

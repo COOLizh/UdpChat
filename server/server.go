@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"net"
 
 	"github.com/COOLizh/itirod/UdpChat/common"
@@ -76,23 +77,52 @@ func (s *Server) HandleClientRequest() {
 		case common.DialogueRoom:
 			id := msg.MessageHeader.DestinationID
 			s.dialogues[id].Messages = append(s.dialogues[id].Messages, msg)
-			addrs := make([]string, 0, len(s.users))
+			if len(s.dialogues[id].Users) == 1 {
+				break
+			}
+			var receiver *common.User
+			var addrs string
 			for _, v := range s.dialogues[id].Users {
-				addrs = append(addrs, v.Addr)
+				if v.Addr != msg.MessageHeader.RemoteAddr {
+					receiver = v
+					addrs = receiver.Addr
+				}
 			}
-			response = common.ServerResponse{
-				Message: common.Message{
-					MessageHeader: common.MessageHeader{
-						MessageType:    common.DialogueRoom,
-						DestinationID:  id,
-						ResponseStatus: common.Ok,
-						RemoteAddr:     msg.MessageHeader.RemoteAddr,
+
+			if !receiver.IsOnline {
+				s.dialogues[id].LastMessageAddr = msg.MessageHeader.RemoteAddr
+			} else {
+				response = common.ServerResponse{
+					Message: common.Message{
+						MessageHeader: common.MessageHeader{
+							MessageType:    common.DialogueRoom,
+							DestinationID:  id,
+							ResponseStatus: common.Ok,
+							RemoteAddr:     msg.MessageHeader.RemoteAddr,
+						},
+						Author:  msg.Author,
+						Content: msg.Author + " : " + msg.Content + "\n",
 					},
-					Author:  msg.Author,
-					Content: msg.Content,
-				},
-				Addrs: addrs,
+					Addrs: []string{addrs},
+				}
+
+				s.sendMessage <- response
+
+				response = common.ServerResponse{
+					Message: common.Message{
+						MessageHeader: common.MessageHeader{
+							MessageType:    common.DialogueRoom,
+							DestinationID:  id,
+							ResponseStatus: common.Ok,
+							RemoteAddr:     msg.MessageHeader.RemoteAddr,
+						},
+						Author:  msg.Author,
+						Content: "*Message recieved*\n",
+					},
+					Addrs: []string{msg.MessageHeader.RemoteAddr},
+				}
 			}
+
 		case common.GroupRoom:
 			id := msg.MessageHeader.DestinationID
 			s.groups[id].Messages = append(s.groups[id].Messages, msg)
@@ -187,7 +217,7 @@ func (s *Server) HandleClientRequest() {
 				for _, v := range users {
 					addrs = append(addrs, v.Addr)
 				}
-				statusStr := "Dialogue created successfully, dialogue name : " + s.dialogues[newID].Name
+				statusStr := "Dialogue created successfully, dialogue name : " + s.dialogues[newID].Name + common.InputArrows
 				response = common.ServerResponse{
 					Message: common.Message{
 						MessageHeader: common.MessageHeader{
@@ -205,6 +235,7 @@ func (s *Server) HandleClientRequest() {
 					},
 					Addrs: addrs,
 				}
+				fmt.Println(s.dialogues[1])
 			case common.CreateGroup:
 				users := make(map[string]*common.User)
 				for _, v := range msg.MessageHeader.RequestCreateConf.UserNames {
@@ -311,6 +342,108 @@ func (s *Server) HandleClientRequest() {
 				response.Message.MessageHeader.ResponseStatus = common.Ok
 				response.Message.MessageHeader.ResponseCreateConf.Name = s.groups[confKey].Name
 
+			case common.ConnectDialogue:
+				//template of response
+				response = common.ServerResponse{
+					Message: common.Message{
+						MessageHeader: common.MessageHeader{
+							MessageType: msg.MessageHeader.MessageType,
+							Function:    msg.MessageHeader.Function,
+						},
+						Author: msg.Author,
+					},
+					Addrs: []string{msg.MessageHeader.RemoteAddr},
+				}
+
+				//check if such group exists
+				var isNotExist bool
+				var confKey int
+				for key := range s.dialogues {
+					if s.dialogues[key].Name == msg.Content {
+						isNotExist = true
+						confKey = key
+						break
+					}
+				}
+				if !isNotExist {
+					response.Message.Content = "No dialogue with such name" + common.InputArrows
+					response.Message.MessageHeader.ResponseStatus = common.Fail
+					break
+				}
+
+				//check user member of conf
+				_, ok := s.dialogues[confKey].Users[msg.Author]
+				if !ok {
+					response.Message.Content = "You're not member of this dialogue" + common.InputArrows
+					response.Message.MessageHeader.ResponseStatus = common.Fail
+					break
+				}
+
+				//make this user online in chat
+				s.dialogues[confKey].Users[msg.Author].IsOnline = true
+
+				//collect all messages from group
+				var content string = "*You are in " + s.dialogues[confKey].Name + " dialogue*\n"
+				for _, message := range s.dialogues[confKey].Messages {
+					content += message.Author + ": " + message.Content + "\n"
+				}
+
+				//if there unread messages
+				if s.dialogues[confKey].LastMessageAddr != "" {
+					var res = common.ServerResponse{
+						Message: common.Message{
+							MessageHeader: common.MessageHeader{
+								MessageType:    common.DialogueRoom,
+								DestinationID:  confKey,
+								ResponseStatus: common.Ok,
+								RemoteAddr:     msg.MessageHeader.RemoteAddr,
+							},
+							Author:  msg.Author,
+							Content: "*Message recieved*\n",
+						},
+						Addrs: []string{s.dialogues[confKey].LastMessageAddr},
+					}
+					s.sendMessage <- res
+					s.dialogues[confKey].LastMessageAddr = ""
+				}
+
+				response.Message.Content = content
+				response.Message.MessageHeader.DestinationID = confKey
+				response.Message.MessageHeader.ResponseStatus = common.Ok
+				response.Message.MessageHeader.ResponseCreateConf.Name = s.dialogues[confKey].Name
+
+			case common.InviteToDialogue:
+				//template of response
+				response = common.ServerResponse{
+					Message: common.Message{
+						MessageHeader: common.MessageHeader{
+							MessageType: msg.MessageHeader.MessageType,
+							Function:    msg.MessageHeader.Function,
+						},
+						Author: msg.Author,
+					},
+					Addrs: []string{msg.MessageHeader.RemoteAddr},
+				}
+
+				//check if user with such username exists
+				usr, ok := s.users[msg.Content]
+				if !ok {
+					response.Message.Content = "There is no such user registered.\n"
+					response.Message.MessageHeader.ResponseStatus = common.Fail
+					break
+				}
+
+				//check if there is more than 2 users
+				if len(s.dialogues[msg.MessageHeader.DestinationID].Users) == 2 {
+					response.Message.Content = "*There are also 2 users in dialogue*\n"
+					response.Message.MessageHeader.ResponseStatus = common.Fail
+					break
+				}
+
+				//adding new user to conf
+				s.dialogues[msg.MessageHeader.DestinationID].Users[usr.Username] = usr
+				response.Message.Content = "*User " + usr.Username + " sucesfully added!*\n"
+
 			case common.InviteToGroup:
 				//template of response
 				response = common.ServerResponse{
@@ -350,7 +483,11 @@ func (s *Server) HandleClientRequest() {
 					Addrs: []string{msg.MessageHeader.RemoteAddr},
 				}
 
-				s.groups[msg.MessageHeader.DestinationID].Users[msg.Content].IsOnline = false
+				if msg.Content == string(common.CommandGroupConnect) {
+					s.groups[msg.MessageHeader.DestinationID].Users[msg.Author].IsOnline = false
+				} else if msg.Content == string(common.CommandDialogueConnect) {
+					s.dialogues[msg.MessageHeader.DestinationID].Users[msg.Author].IsOnline = false
+				}
 				response.Message.Content = common.InputArrows
 			}
 		}
